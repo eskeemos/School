@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Czas generowania: 27 Maj 2021, 11:50
+-- Czas generowania: 27 Maj 2021, 20:39
 -- Wersja serwera: 10.4.18-MariaDB
 -- Wersja PHP: 8.0.3
 
@@ -464,11 +464,11 @@ CREATE TABLE `premia` (
 --
 
 INSERT INTO `premia` (`ID`, `Nazwa`, `Wartość`) VALUES
-(1, 'Premia stażowa', '300.00'),
-(2, 'Premia regulaminowa', '500.00'),
-(3, 'Premia uznaniowa', '600.00'),
-(4, 'Premia frekwencyjna', '200.00'),
-(5, 'Premia zadaniowa', '900.00');
+(1, 'Premia stażowa', '0.00'),
+(2, 'Premia regulaminowa', '0.00'),
+(3, 'Premia uznaniowa', '0.00'),
+(4, 'Premia frekwencyjna', '0.00'),
+(5, 'Premia zadaniowa', '0.00');
 
 -- --------------------------------------------------------
 
@@ -625,11 +625,11 @@ CREATE TABLE `stanowisko` (
 --
 
 INSERT INTO `stanowisko` (`ID`, `Nazwa`, `PłacaPodstawowa`) VALUES
-(1, 'Analityk systemowy IT', '5800.00'),
-(2, 'Doradca klienta', '3500.00'),
-(3, 'Kasjer bankowy', '4200.00'),
-(4, 'Agent kredytowy', '5300.00'),
-(5, 'Doradca inwestycyjny.', '6000.00');
+(1, 'Analityk systemowy IT', '0.00'),
+(2, 'Doradca klienta', '0.00'),
+(3, 'Kasjer bankowy', '0.00'),
+(4, 'Agent kredytowy', '0.00'),
+(5, 'Doradca inwestycyjny.', '0.00');
 
 -- --------------------------------------------------------
 
@@ -665,21 +665,21 @@ INSERT INTO `transakcje` (`ID`, `Wartość`, `Klient_ID`, `Data_ID`, `RodzajTran
 
 CREATE TABLE `wypłata` (
   `ID` int(11) NOT NULL,
-  `Miesiąc` varchar(50) NOT NULL,
-  `PensjaCałkowita` decimal(7,2) NOT NULL,
-  `Pracownik_ID` int(11) NOT NULL
+  `Pracownik_ID` int(11) NOT NULL,
+  `PensjaPodstawowa` decimal(7,2) DEFAULT NULL,
+  `OsiągnietaPremia` decimal(7,2) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 --
 -- Zrzut danych tabeli `wypłata`
 --
 
-INSERT INTO `wypłata` (`ID`, `Miesiąc`, `PensjaCałkowita`, `Pracownik_ID`) VALUES
-(1, 'Maj', '0.00', 1),
-(2, 'Maj', '0.00', 2),
-(3, 'Maj', '0.00', 3),
-(4, 'Maj', '0.00', 4),
-(5, 'Maj', '0.00', 5);
+INSERT INTO `wypłata` (`ID`, `Pracownik_ID`, `PensjaPodstawowa`, `OsiągnietaPremia`) VALUES
+(1, 1, '0.00', '0.00'),
+(2, 2, '0.00', '0.00'),
+(3, 3, '0.00', '0.00'),
+(4, 4, '0.00', '0.00'),
+(5, 5, '0.00', '0.00');
 
 -- --------------------------------------------------------
 
@@ -939,8 +939,7 @@ ALTER TABLE `transakcje`
 --
 ALTER TABLE `wypłata`
   ADD PRIMARY KEY (`ID`,`Pracownik_ID`),
-  ADD KEY `fk_Wypłata_Pracownik1_idx` (`Pracownik_ID`),
-  ADD KEY `wypłata_money` (`PensjaCałkowita`);
+  ADD KEY `fk_Wypłata_Pracownik1_idx` (`Pracownik_ID`);
 
 --
 -- AUTO_INCREMENT dla zrzuconych tabel
