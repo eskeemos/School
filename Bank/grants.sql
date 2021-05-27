@@ -1,0 +1,33 @@
+# Uprawnienia dla `agent`@`%`
+
+GRANT USAGE ON *.* TO `agent`@`%` IDENTIFIED BY PASSWORD '*F056B246DF4B0CC9A15B02661FD1B5785E0E75C7';
+
+GRANT SELECT, INSERT, UPDATE ON `bank`.* TO `agent`@`%`;
+
+
+# Uprawnienia dla `analitykIT`@`%`
+
+GRANT USAGE ON *.* TO `analitykIT`@`%` IDENTIFIED BY PASSWORD '*067F6B4F254D5E3044C4200DDF59CFEDD9E58811';
+
+GRANT SELECT, INSERT, UPDATE, CREATE, ALTER ON `bank`.* TO `analitykIT`@`%`;
+
+
+# Uprawnienia dla `doradca`@`%`
+
+GRANT USAGE ON *.* TO `doradca`@`%` IDENTIFIED BY PASSWORD '*6582B60DD274299E7E4039D76618FDC241F58FF4';
+
+GRANT SELECT ON `bank`.* TO `doradca`@`%`;
+
+
+# Uprawnienia dla `doradcaInw`@`%`
+
+GRANT USAGE ON *.* TO `doradcaInw`@`%` IDENTIFIED BY PASSWORD '*FB628470B8C4CD2F7E250A9BF8905FBAF6517C63';
+
+GRANT SELECT, INSERT, UPDATE, ALTER ON `bank`.* TO `doradcaInw`@`%`;
+
+
+# Uprawnienia dla `kasjer`@`%`
+
+GRANT USAGE ON *.* TO `kasjer`@`%` IDENTIFIED BY PASSWORD '*5D64F109B2C6507269A55A6B0915B87AEED4DABE';
+
+GRANT SELECT, INSERT ON `bank`.* TO `kasjer`@`%`;
