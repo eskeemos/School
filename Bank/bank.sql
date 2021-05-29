@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Czas generowania: 28 Maj 2021, 17:22
+-- Czas generowania: 29 Maj 2021, 11:02
 -- Wersja serwera: 10.4.18-MariaDB
 -- Wersja PHP: 8.0.3
 
@@ -20,6 +20,54 @@ SET time_zone = "+00:00";
 --
 -- Baza danych: `bank`
 --
+
+DELIMITER $$
+--
+-- Procedury
+--
+CREATE DEFINER=`root`@`localhost` PROCEDURE `NowyMiesiąc` ()  DELETE FROM premia_has_wypłata$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `PokażKredytyZMiesiąca` (IN `Miesiąc` VARCHAR(20))  BEGIN
+    DECLARE miesiac VARCHAR(20);
+    SET miesiac = mies;
+    SELECT aktywne_kredyty.*, data.Miesiąc FROM aktywne_kredyty INNER JOIN kredyt ON aktywne_kredyty.ID = kredyt.ID INNER JOIN data ON data.ID = kredyt.DataZałożenia_ID WHERE data.Miesiąc = miesiac;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `PokażLokatyZMiesiąca` (IN `Miesiac` VARCHAR(20))  BEGIN
+    DECLARE miesiac VARCHAR(20);
+    SET miesiac = mies;
+    SELECT aktywne_lokaty.*, data.Miesiąc FROM aktywne_lokaty INNER JOIN lokata ON aktywne_lokaty.ID = lokata.ID INNER JOIN data ON data.ID = lokata.DataZałożenia_ID WHERE data.Miesiąc = miesiac;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `PokażZdolnośćKredytowąKlienta` (IN `ID_Klienta` INT)  BEGIN
+    SELECT *, (Inne + Nieruchomości) as Całość, ((Inne + Nieruchomości) * .49) AS MaksymalnyKredyt FROM majątek WHERE ID = ID_Klienta;
+END$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `WykonajPodwyżkePłacyPodstawowej` (IN `kwota` FLOAT)  UPDATE stanowisko SET PłacaPodstawowa = PłacaPodstawowa + kwota$$
+
+CREATE DEFINER=`root`@`localhost` PROCEDURE `WykonajPrzelew` (IN `NumerKontaWykonawcy` TEXT, IN `NumerKontaOdbiorcy` TEXT, IN `Kwota` FLOAT, OUT `WynikTransakcji` INT)  BEGIN
+    DECLARE rols BOOL DEFAULT 0;
+    DECLARE CONTINUE HANDLER FOR
+    SQLEXCEPTION SET rols = 1;
+IF(SELECT COUNT(*) FROM rachunek_kredytowy WHERE ID LIKE NumerKontaWykonawcy AND Środki >= Kwota)
+=1  THEN 
+    SET WynikTransakcji = 1;
+    SET rols = 0;
+    ELSE
+    SET WynikTransakcji = 0;
+    SET rols = 1;
+END IF;
+START TRANSACTION;
+INSERT INTO `data` VALUES(NULL,(SELECT YEAR(CURRENT_TIME)),(SELECT MONTHNAME(CURRENT_TIME)),(SELECT DAY(CURRENT_TIME)),(SELECT CURRENT_TIME));
+INSERT INTO transakcje VALUES(NULL,Kwota,((SELECT klient.ID FROM klient INNER JOIN rachunek_kredytowy ON rachunek_kredytowy.Klient_ID = klient.ID WHERE rachunek_kredytowy.ID LIKE NumerKontaWykonawcy)),(SELECT ID FROM `data` ORDER BY ID DESC LIMIT 1),1,1);
+UPDATE rachunek_kredytowy SET Środki = Środki - Kwota  WHERE ID LIKE NumerKontaWykonawcy;
+UPDATE rachunek_kredytowy SET Środki = Środki + Kwota  WHERE ID LIKE NumerKontaOdbiorcy;
+IF rols THEN ROLLBACK;
+    ELSE COMMIT;
+END IF;
+END$$
+
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -470,6 +518,17 @@ INSERT INTO `premia` (`ID`, `Nazwa`, `Wartość`) VALUES
 (4, 'Premia frekwencyjna', '0.00'),
 (5, 'Premia zadaniowa', '0.00');
 
+--
+-- Wyzwalacze `premia`
+--
+DELIMITER $$
+CREATE TRIGGER `ZmianaWysokościPremii` AFTER UPDATE ON `premia` FOR EACH ROW BEGIN
+    DECLARE ID_Klienta INT;SET ID_Klienta = (SELECT W.ID FROM wypłata W LEFT JOIN premia_has_wypłata PHS ON W.ID = PHS.Wypłata_ID LEFT JOIN premia P ON PHS.Premia_ID = P.ID WHERE P.ID = OLD.ID);
+    UPDATE wypłata SET OsiągnietaPremia   = (SELECT COALESCE(SUM(Wartość),0) FROM wypłata W LEFT JOIN premia_has_wypłata PHS ON W.ID = PHS.Wypłata_ID LEFT JOIN premia P ON PHS.Premia_ID = P.ID WHERE 1 = PHS.Wypłata_ID) WHERE ID = ID_Klienta;
+END
+$$
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
@@ -480,6 +539,26 @@ CREATE TABLE `premia_has_wypłata` (
   `Premia_ID` int(11) NOT NULL,
   `Wypłata_ID` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+
+--
+-- Wyzwalacze `premia_has_wypłata`
+--
+DELIMITER $$
+CREATE TRIGGER `DodaniePremii` AFTER INSERT ON `premia_has_wypłata` FOR EACH ROW BEGIN
+    DECLARE ID_Klienta INT;
+    SET ID_Klienta=(SELECT W.ID FROM wypłata W LEFT JOIN premia_has_wypłata PHS ON W.ID = PHS.Wypłata_ID LEFT JOIN premia P ON PHS.Premia_ID = P.ID WHERE W.ID = NEW.Wypłata_ID LIMIT 1);
+    UPDATE wypłata SET OsiągnietaPremia = (SELECT COALESCE(SUM(Wartość),0) FROM wypłata W LEFT JOIN premia_has_wypłata PHS ON W.ID = PHS.Wypłata_ID LEFT JOIN premia P ON PHS.Premia_ID = P.ID WHERE 1 = PHS.Wypłata_ID) WHERE ID = ID_Klienta;
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `UsunięciePremii` AFTER DELETE ON `premia_has_wypłata` FOR EACH ROW BEGIN
+    DECLARE ID_Klienta INT;
+    SET ID_Klienta=(SELECT W.ID FROM wypłata W LEFT JOIN premia_has_wypłata PHS ON W.ID = PHS.Wypłata_ID LEFT JOIN premia P ON PHS.Premia_ID = P.ID WHERE OLD.Wypłata_ID = W.ID);
+    UPDATE wypłata SET OsiągnietaPremia = (SELECT COALESCE(SUM(Wartość),0) FROM wypłata W LEFT JOIN premia_has_wypłata PHS ON W.ID = PHS.Wypłata_ID LEFT JOIN premia P ON PHS.Premia_ID = P.ID WHERE 1 = PHS.Wypłata_ID) WHERE ID = ID_Klienta;
+END
+$$
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -620,13 +699,36 @@ INSERT INTO `stanowisko` (`ID`, `Nazwa`, `PłacaPodstawowa`) VALUES
 (4, 'Agent kredytowy', '0.00'),
 (5, 'Doradca inwestycyjny.', '0.00');
 
+--
+-- Wyzwalacze `stanowisko`
+--
+DELIMITER $$
+CREATE TRIGGER `ZmianaWysokościPłacyPodstawowej` AFTER UPDATE ON `stanowisko` FOR EACH ROW BEGIN
+    UPDATE wypłata SET PensjaPodstawowa = (NEW.PłacaPodstawowa) WHERE ID = (SELECT W.ID FROM wypłata W INNER JOIN pracownik P ON W.Pracownik_ID = P.ID INNER JOIN stanowisko S ON P.ID = S.ID WHERE S.ID = OLD.ID);
+END
+$$
+DELIMITER ;
+
 -- --------------------------------------------------------
 
 --
--- Zastąpiona struktura widoku `szacowanawypłata`
+-- Struktura tabeli dla tabeli `szacowanawypłata`
+--
+
+CREATE TABLE `szacowanawypłata` (
+  `ID` int(11) DEFAULT NULL,
+  `Imię` varchar(50) DEFAULT NULL,
+  `Nazwisko` varchar(50) DEFAULT NULL,
+  `Wypłata` decimal(8,2) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- --------------------------------------------------------
+
+--
+-- Zastąpiona struktura widoku `szacowana_wypłata`
 -- (Zobacz poniżej rzeczywisty widok)
 --
-CREATE TABLE `szacowanawypłata` (
+CREATE TABLE `szacowana_wypłata` (
 `ID` int(11)
 ,`Imię` varchar(50)
 ,`Nazwisko` varchar(50)

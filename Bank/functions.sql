@@ -2,8 +2,8 @@
 CREATE PROCEDURE WykonajPodwyżkePłacyPodstawowej(IN kwota float) UPDATE stanowisko SET PłacaPodstawowa = PłacaPodstawowa + kwota;
 
 #2 transakcja przelewu
-DELIMITER //
-CREATE PROCEDURE WykonajPrzelew(IN NumerKontaWykonawcy text, IN NumerKontaOdbiorcy text, IN Kwota float, OUT WynikTransakcji int)
+DELIMITER $$
+CREATE DEFINER=`root`@`localhost` PROCEDURE `WykonajPrzelew`(IN `NumerKontaWykonawcy` TEXT, IN `NumerKontaOdbiorcy` TEXT, IN `Kwota` FLOAT, OUT `WynikTransakcji` INT)
 BEGIN
     DECLARE rols BOOL DEFAULT 0;
     DECLARE CONTINUE HANDLER FOR
@@ -17,12 +17,14 @@ IF(SELECT COUNT(*) FROM rachunek_kredytowy WHERE ID LIKE NumerKontaWykonawcy AND
     SET rols = 1;
 END IF;
 START TRANSACTION;
+INSERT INTO `data` VALUES(NULL,(SELECT YEAR(CURRENT_TIME)),(SELECT MONTHNAME(CURRENT_TIME)),(SELECT DAY(CURRENT_TIME)),(SELECT CURRENT_TIME));
+INSERT INTO transakcje VALUES(NULL,Kwota,((SELECT klient.ID FROM klient INNER JOIN rachunek_kredytowy ON rachunek_kredytowy.Klient_ID = klient.ID WHERE rachunek_kredytowy.ID LIKE NumerKontaWykonawcy)),(SELECT ID FROM `data` ORDER BY ID DESC LIMIT 1),1,1);
 UPDATE rachunek_kredytowy SET Środki = Środki - Kwota  WHERE ID LIKE NumerKontaWykonawcy;
 UPDATE rachunek_kredytowy SET Środki = Środki + Kwota  WHERE ID LIKE NumerKontaOdbiorcy;
 IF rols THEN ROLLBACK;
     ELSE COMMIT;
 END IF;
-END //
+END$$
 DELIMITER ;
 
 #3  Trigger dla zmainy wysokości płacy w stanowisku
